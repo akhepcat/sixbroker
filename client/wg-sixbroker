@@ -3,7 +3,6 @@
 ####  Where this script and config files live
 WGDIR=/etc/wireguard
 
-
 #######################################
 # Programmatically assigned, no touchie
 
@@ -48,15 +47,15 @@ start() {
 
 	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
 	DGW=$(ip route show dev ${DEV} | grep default | awk '{print $3}')
-	sed -i "s/via .*/via ${DGW}/g" ${CONFIG}
+	sed -i "\(ip -4 route add .*\) via .*/\1 via ${DGW}/g" ${CONFIG}
 	sed -i "s/default dev.*/default dev ${SERVER}/g" ${CONFIG}
 
 	wg-quick up ${SERVER}
 
+	WANv6=$(grep 'ip -6 addr dev sixbroker add' | sed 's/ip -6 addr dev sixbroker add //g;')
 	if [ -n "${WANv6}" ];
 	then
-		ip address add dev ${SERVER} ${WANv6} && \
-			ip route add ::/0 via ${WANv6//::2*/::1} dev ${SERVER}
+		ip route add ::/0 via ${WANv6//::*/::1} dev ${SERVER}
 	fi
 }
 
