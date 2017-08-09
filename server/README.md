@@ -1,0 +1,23 @@
+The contents of this directory should be installed somewhere in /etc
+we default to /etc/wireguard, though that can be changed in the default configuration file
+
+the file  'wgserver'   should be placed in /etc/default,  as it's used for
+the base configuration of the server system and holds all the user-changable
+variables necessary for the basic operation of the system.  
+Note that this file shouldn't be renamed.
+
+the 'clients/'  directory holds the public key of every registered client
+
+the 'private/'  directory holds the public and private keys of the server
+
+'clients.conf'  contains the IPv6 configuration for any client doing IPv6 tunneling
+
+'server.conf'  is the wireguard configuration file for the service management script.
+
+wg-server.sh  is the actual service management script.   the '-server' portion tells teh
+script which conf file to load:
+  'wg-server.sh'  loads  'server.conf'
+  'wg-foo.sh'   loads 'foo.conf'
+
+and so on.
+

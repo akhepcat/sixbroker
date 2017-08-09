@@ -1,0 +1,88 @@
+#!/bin/bash
+#
+####  Where this script and config files live
+WGDIR=/etc/wireguard
+
+
+#######################################
+# Programmatically assigned, no touchie
+
+PROG="${0##*/}"
+CONFIG=${PROG//wg-/}
+SERVER=${CONFIG//\.*/}
+CONFIG=${WGDIR}/${SERVER}.conf
+HN=$(hostname)
+
+SK=$(cat ${WGDIR}/servers/${SERVER}.publickey)
+HK=$(cat ${WGDIR}/private/${HN}.publickey)
+PK=$(cat ${WGDIR}/private/${HN}.privatekey)
+
+check_keys() {
+        if [ -z "${SK}" ]
+        then
+        	echo "Can't continue - server publickey is missing!"
+        	exit 1
+        elif [ -z "$(grep ${SK} ${CONFIG})" ];
+        then
+                sed -i "s|PublicKey.*|PublicKey = ${SK}|g" ${CONFIG}
+        fi
+        if [ -z "${PK}" ]
+        then
+        	echo "Can't continue - client privatekey is missing!"
+        	exit 1
+        elif [ -z "$(grep ${PK} ${CONFIG})" ];
+        then
+		sed -i "s|PrivateKey.*|PrivateKey = ${PK}|g" ${CONFIG}
+	fi
+       
+}
+
+stop() {
+	wg-quick down ${SERVER}
+	rmmod wireguard
+}
+
+start() {
+
+	check_keys
+
+	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
+	DGW=$(ip route show dev ${DEV} | grep default | awk '{print $3}')
+	sed -i "s/via .*/via ${DGW}/g" ${CONFIG}
+	sed -i "s/default dev.*/default dev ${SERVER}/g" ${CONFIG}
+
+	wg-quick up ${SERVER}
+
+	if [ -n "${WANv6}" ];
+	then
+		ip address add dev ${SERVER} ${WANv6} && \
+			ip route add ::/0 via ${WANv6//::2*/::1} dev ${SERVER}
+	fi
+}
+
+status() {
+	if [ -z "$( wg show interfaces )" ];
+	then
+		echo "Not running"
+	else
+	        wg show ${SERVER}
+                ip -4 route show dev ${SERVER}
+                ip -6 route show dev ${SERVER}
+	fi
+}
+
+
+
+case ${1} in
+	start) start
+		;;
+	stop) stop
+		;;
+	keys) check_keys;
+		grep Key ${CONFIG}
+		;;
+	status) status
+		;;
+	*) echo "$0 start|stop|status"
+		;;
+esac

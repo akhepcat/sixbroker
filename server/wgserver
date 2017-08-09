@@ -1,0 +1,2 @@
+WGDIR=/etc/wireguard
+LOCALv4=172.16.10.1/24
