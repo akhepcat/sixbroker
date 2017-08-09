@@ -80,16 +80,26 @@ status() {
 	if [ $? -eq 0 ]; then
 		wg show ${IFACE}
 		if [ $? -eq 0 ]; then
+			echo -e "\nIPv4 hub:"
 			ip -4 route show dev ${IFACE}
-			ip -6 route show dev ${IFACE}
+
+			echo -en "\niptables: IPv4 natting is "
+			iptables -t nat -C POSTROUTING -s ${LOCALv4//1\//0\/} -o ${OUTSIDE} -j MASQUERADE >/dev/null 2>&1
+			if [ $? -ne 0 ]; then
+				echo -n "not "
+			fi
+			echo "enabled"
+
+			echo -en "\nIPv6 forwarding is "
+			if [ 1 -eq $(cat /proc/sys/net/ipv6/conf/all/forwarding) ];
+			then
+				echo "enabled"
+				echo -e "\nClient IPv6 tunneled routes:"
+				ip -6 route show dev ${IFACE}
+			else
+				echo "disabled"
+			fi
 		fi
-		echo "IPv6 forwarding: $(cat /proc/sys/net/ipv6/conf/all/forwarding)"
-		echo -n "iptables: IPv4 natting is "
-		iptables -t nat -C POSTROUTING -s ${LOCALv4//1\//0\/} -o ${OUTSIDE} -j MASQUERADE >/dev/null 2>&1
-		if [ $? -ne 0 ]; then
-			echo -n "not "
-		fi
-		echo "enabled"
 	else
 		echo "not running"
 	fi
