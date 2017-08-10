@@ -6,7 +6,7 @@
 IFACE=wg-hub	# I mean, you COULD change this one in the defaults config file, or even here, but there's really no reason to.
 
 PROG="${0##*/}"
-CONFIG=${PROG//run-/}; CONFIG=${CONFIG//\.*/}.conf;
+CONFIG=${PROG//wg-/}; CONFIG=${CONFIG//\.*/}.conf;
 HN=$(hostname)
 OUTSIDE=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)  # one liner default IPv4 route interface grabber
 
@@ -116,14 +116,15 @@ start_nat() {
 start() {
 	ip link show ${IFACE} >/dev/null 2>&1 || ip link add dev ${IFACE} type wireguard
 	ip address add dev ${IFACE} ${LOCALv4}
-	for CLIENT in $(grep \.wan ${WGDIR}/clients.conf | cut -f 1 -d.)
+	for CLIENT in $(grep \.6wan ${WGDIR}/clients.conf | cut -f 1 -d.)
 	do
-		WAN=$(grep ${CLIENT}\.wan ${WGDIR}/clients.conf | cut -f 2 -d=)
-		LAN=$(grep ${CLIENT}\.lan ${WGDIR}/clients.conf | cut -f 2 -d=)
+		WANv6=$(grep ${CLIENT}\.6wan ${WGDIR}/clients.conf | cut -f 2 -d=)
+		LANv6=$(grep ${CLIENT}\.6lan ${WGDIR}/clients.conf | cut -f 2 -d=)
 
-		ip address add dev ${IFACE} ${WAN//::/::1}
-		ip -6 route add dev ${IFACE} ${LAN} via ${WAN//::*/::2}
+		ip -6 address add dev ${IFACE} ${WANv6//::/::1}
+		[[ -n "${LANv6}" ]] && ip -6 route add dev ${IFACE} ${LANv6} via ${WANv6//::*/::2}
 	done
+
 	ip link set ${IFACE} up
 	echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 	
