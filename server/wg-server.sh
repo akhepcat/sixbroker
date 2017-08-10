@@ -122,10 +122,10 @@ start_nat() {
 start() {
 	ip link show ${IFACE} >/dev/null 2>&1 || ip link add dev ${IFACE} type wireguard
 	ip address add dev ${IFACE} ${WANv4//.0\//.1\/}
-	for CLIENT in $(grep \.6wan ${WGDIR}/clients.conf | cut -f 1 -d.)
+	for CLIENT in $(grep """\.6wan""" ${WGDIR}/clients.conf | cut -f 1 -d.)
 	do
-		WANv6=$(grep ${CLIENT}\.6wan ${WGDIR}/clients.conf | cut -f 2 -d=)
-		LANv6=$(grep ${CLIENT}\.6lan ${WGDIR}/clients.conf | cut -f 2 -d=)
+		WANv6=$(grep """${CLIENT}\.6wan""" ${WGDIR}/clients.conf | cut -f 2 -d=)
+		LANv6=$(grep """${CLIENT}\.6lan""" ${WGDIR}/clients.conf | cut -f 2 -d=)
 
 		ip -6 address add dev ${IFACE} ${WANv6//::/::1}
 		[[ -n "${LANv6}" ]] && ip -6 route add dev ${IFACE} ${LANv6} via ${WANv6//::*/::2}
