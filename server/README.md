@@ -14,10 +14,10 @@ the 'private/'  directory holds the public and private keys of the server
 
 'server.conf'  is the wireguard configuration file for the service management script.
 
-wg-server.sh  is the actual service management script.   the '-server' portion tells teh
+wg-server.sh  is the actual service management script.   the '-server' portion tells the
 script which conf file to load:
-  'wg-server.sh'  loads  'server.conf'
-  'wg-foo.sh'   loads 'foo.conf'
+ *  'wg-server.sh'  loads  'server.conf'
+ *  'wg-foo.sh'   loads 'foo.conf'
 
 and so on.
 
