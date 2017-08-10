@@ -2,6 +2,7 @@
 
 dec2ip () {
     local ip dec=$@
+    unset delim
     for e in {3..0}
     do
         ((octet = dec / (256 ** e) ))
