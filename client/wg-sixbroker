@@ -47,12 +47,12 @@ start() {
 
 	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
 	DGW=$(ip route show dev ${DEV} | grep default | awk '{print $3}')
-	sed -i "\(ip -4 route add .*\) via .*/\1 via ${DGW}/g" ${CONFIG}
+	sed -i "s/\(ip -4 route add .*\) via .*/\1 via ${DGW}/g" ${CONFIG}
 	sed -i "s/default dev.*/default dev ${SERVER}/g" ${CONFIG}
 
 	wg-quick up ${SERVER}
 
-	WANv6=$(grep 'ip -6 addr dev sixbroker add' | sed 's/ip -6 addr dev sixbroker add //g;')
+	WANv6=$(grep 'ip -6 addr add' ${CONFIG} | sed 's/.*ip -6 addr add //g; s/dev sixbroker//g;')
 	if [ -n "${WANv6}" ];
 	then
 		ip route add ::/0 via ${WANv6//::*/::1} dev ${SERVER}
