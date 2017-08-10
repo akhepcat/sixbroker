@@ -32,13 +32,19 @@ client_keys() {
 		[[ -n "${VERBOSE}" ]] && echo "checking client: ${client//.publickey/}"
 
 		key=$(head -1 ${WGDIR}/clients/${client})
-		if [ -z "$(grep ${key} ${WGDIR}/${CONFIG})" ];
+		if [ -z "$(grep """${key}""" ${WGDIR}/${CONFIG})" ];
 		then
-			[[ -n "${VERBOSE}" ]] && echo "adding new config for ${client//.publickey/}"
-			echo "[Peer]" >> ${WGDIR}/${CONFIG}
-			echo "PublicKey = ${key}" >> ${WGDIR}/${CONFIG}
-			echo "AllowedIPs = 0.0.0.0/0, ::/0"  >> ${WGDIR}/${CONFIG}
-			echo ""  >> ${WGDIR}/${CONFIG}
+			wg pubkey < ${WGDIR}/clients/${client} >/dev/null 2>&1
+			if [ $? -eq 0 ]
+			then
+				[[ -n "${VERBOSE}" ]] && echo "adding new config for ${client//.publickey/}"
+				echo "[Peer]" >> ${WGDIR}/${CONFIG}
+				echo "PublicKey = ${key}" >> ${WGDIR}/${CONFIG}
+				echo "AllowedIPs = 0.0.0.0/0, ::/0"  >> ${WGDIR}/${CONFIG}
+				echo ""  >> ${WGDIR}/${CONFIG}
+			else
+				[[ -n "${VERBOSE}" ]] && echo "invalid public key for ${client//.publickey/}, skipping"
+			fi
 		fi
 	done
 }
