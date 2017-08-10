@@ -84,7 +84,7 @@ status() {
 			ip -4 route show dev ${IFACE}
 
 			echo -en "\niptables: IPv4 natting is "
-			iptables -t nat -C POSTROUTING -s ${LOCALv4//1\//0\/} -o ${OUTSIDE} -j MASQUERADE >/dev/null 2>&1
+			iptables -t nat -C POSTROUTING -s ${WANv4} -o ${OUTSIDE} -j MASQUERADE >/dev/null 2>&1
 			if [ $? -ne 0 ]; then
 				echo -n "not "
 			fi
@@ -108,14 +108,14 @@ status() {
 start_nat() {
 	iptables -A FORWARD -i ${IFACE} -o ${OUTSIDE} -m conntrack --ctstate NEW -j ACCEPT
 	iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-	iptables -t nat -A POSTROUTING -s ${LOCALv4//1\//0\/} -o ${OUTSIDE} -j MASQUERADE
+	iptables -t nat -A POSTROUTING -s ${WANv4} -o ${OUTSIDE} -j MASQUERADE
 
 	echo 1 >/proc/sys/net/ipv4/conf/all/forwarding
 }
 
 start() {
 	ip link show ${IFACE} >/dev/null 2>&1 || ip link add dev ${IFACE} type wireguard
-	ip address add dev ${IFACE} ${LOCALv4}
+	ip address add dev ${IFACE} ${WANv4//.0\//.1\/}
 	for CLIENT in $(grep \.6wan ${WGDIR}/clients.conf | cut -f 1 -d.)
 	do
 		WANv6=$(grep ${CLIENT}\.6wan ${WGDIR}/clients.conf | cut -f 2 -d=)
@@ -140,7 +140,7 @@ stop_nat() {
 
         iptables -D FORWARD -i ${IFACE} -o ${OUTSIDE} -m conntrack --ctstate NEW -j ACCEPT
         iptables -D FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-        iptables -t nat -D POSTROUTING -s ${LOCALv4//1\//0\/} -o ${OUTSIDE} -j MASQUERADE
+        iptables -t nat -D POSTROUTING -s ${WANv4} -o ${OUTSIDE} -j MASQUERADE
 }
 
 stop() {
