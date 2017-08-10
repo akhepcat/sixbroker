@@ -38,6 +38,14 @@ create() {
 		exit 1
 	fi
 
+        if [ ! -r ${WGDIR}/private/${HN}.publickey ]; 
+        then
+		echo "failed reading server public key.  Can't continue."
+		exit 1
+	else
+		SK=$(cat  ${WGDIR}/private/${HN}.publickey)
+	fi
+
 	IP4SNb=${WANv4##*/}			# subnet bits
 	IP4SNs=$(( 2 ** ( 32 - IP4SNb) ))	# Max addresses
 
@@ -104,14 +112,14 @@ create() {
 
 	echo "[Interface]
 PrivateKey = [pending]
-Address = ${IP4}/${IP4SN}
+Address = ${IP4}
 ListenPort = 51820
 PostUp = ip -4 route replace default dev sixbroker
 PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
-PostUp = ip -6 addr dev sixbroker add ${W6IP}::1/64
+PostUp = ip -6 addr dev sixbroker add ${WANv6%::*}::1/64
 PostDown = ip -4 route replace default via 192.168.1.1
 PostDown = ip -4 route del 10.10.10.1 via 192.168.1.1
-PostDown = ip -6 addr dev sixbroker del ${W6IP}::1/64
+PostDown = ip -6 addr dev sixbroker del ${WANv6%::*}::1/64
 
 [Peer]
 PublicKey = ${SK}
@@ -183,6 +191,7 @@ remove() {
 
 ###  MAIN ###
 
+HN=$(hostname)
 [[ -r /etc/default/wgserver ]] && . /etc/default/wgserver
 if [ -z "${WGDIR}" -o ! -d "${WGDIR}" ];
 then
