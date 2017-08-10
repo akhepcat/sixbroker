@@ -47,7 +47,7 @@ start() {
 
 	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
 	DGW=$(ip route show dev ${DEV} | grep default | awk '{print $3}')
-	sed -i "\(ip -4 route add .*\) via .*/\1 via ${DGW}/g" ${CONFIG}
+	sed -i "s/\(ip -4 route add .*\) via .*/\1 via ${DGW}/g" ${CONFIG}
 	sed -i "s/default dev.*/default dev ${SERVER}/g" ${CONFIG}
 
 	wg-quick up ${SERVER}
