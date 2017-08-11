@@ -49,6 +49,16 @@ client_keys() {
 	done
 }
 
+server_conf() {
+	# We need to fix-up the server listen-port.  That's it!
+	
+	if [ -z "$(grep -iw """ListenPort.*${SPORT}""" ${WGDIR}/${CONFIG})" ]
+	then
+		sed -i "s/ListenPort.*/ListenPort = ${SPORT}/g" ${WGDIR}/${CONFIG}
+	fi
+}
+
+
 server_keys() {
 	VERBOSE=$1
 	
@@ -120,6 +130,8 @@ start_nat() {
 }
 
 start() {
+	server_conf
+
 	ip link show ${IFACE} >/dev/null 2>&1 || ip link add dev ${IFACE} type wireguard
 	ip address add dev ${IFACE} ${WANv4//.0\//.1\/}
 	for CLIENT in $(grep """\.6wan""" ${WGDIR}/clients.conf | cut -f 1 -d.)
@@ -138,6 +150,8 @@ start() {
 
 	wg show ${IFACE}
 
+	iptables -I INPUT -p udp -m udp --dport ${SPORT} -j ACCEPT
+
 	start_nat
 }
 
@@ -150,6 +164,8 @@ stop_nat() {
 }
 
 stop() {
+	iptables -D INPUT -p udp -m udp --dport ${SPORT} -j ACCEPT
+
 	stop_nat
 
 	ip link show ${IFACE} >/dev/null 2>&1

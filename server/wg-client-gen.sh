@@ -113,7 +113,7 @@ create() {
 	echo "[Interface]
 PrivateKey = [pending]
 Address = ${IP4}
-ListenPort = 51820
+ListenPort = ${CPORT}
 PostUp = ip -4 route replace default dev sixbroker
 PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
 PostUp = ip -6 addr dev sixbroker add ${WANv6%::*}::1/64
@@ -123,7 +123,7 @@ PostDown = ip -6 addr dev sixbroker del ${WANv6%::*}::1/64
 
 [Peer]
 PublicKey = ${SK}
-Endpoint = ${MyIntIPv4}:51820
+Endpoint = ${MyIntIPv4}:${SPORT}
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 " >${WGDIR}/client-cfgs/${client}.conf

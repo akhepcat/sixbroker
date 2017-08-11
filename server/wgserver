@@ -6,3 +6,9 @@ WANv6=2000:0172:0016:0000::/48
 LANv6=2000:0010:1000:0000::/40
 
 IFACE=wg-hub
+
+# Define the ports used for communication.  They can be the same, or different.
+# Server Port: Client connects to this
+# Client Port: Server connects to this
+SPORT=51820
+CPORT=51820
