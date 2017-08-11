@@ -75,7 +75,7 @@ status() {
 	fi
 }
 
-
+CPORT=$(grep -i 'ListenPort' ${CONFIG} | cut -f 2 -d=)
 
 case ${1} in
 	start) start
