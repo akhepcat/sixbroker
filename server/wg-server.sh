@@ -164,15 +164,23 @@ stop_nat() {
 }
 
 stop() {
-	iptables -D INPUT -p udp -m udp --dport ${SPORT} -j ACCEPT
+	echo -n "wg server is "
+	if [ -n "$(wg show)" ]
+	then
+		iptables -D INPUT -p udp -m udp --dport ${SPORT} -j ACCEPT
 
-	stop_nat
+		stop_nat
 
-	ip link show ${IFACE} >/dev/null 2>&1
-	if [ $? -eq 0 ]; then
-		ip link set ${IFACE} down
-		ip link del dev ${IFACE}
+		ip link show ${IFACE} >/dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			ip link set ${IFACE} down
+			ip link del dev ${IFACE}
+		fi
+	else
+		echo -n "already "
 	fi
+
+	echo "stopped"
 }
 
 
