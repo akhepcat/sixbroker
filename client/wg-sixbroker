@@ -41,7 +41,13 @@ check_keys() {
 }
 
 stop() {
+	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
 	iptables -D INPUT -p udp -m udp --dport ${CPORT} -j ACCEPT
+	iptables -D FORWARD -o ${DEV} -m conntrack --ctstate NEW -j ACCEPT
+
+	# There -should- be an existing MASQ rule that matches our physical device, so we need to copy it for our virtual tunnel device
+	MASQIP=$( iptables -t nat --list-rules | grep -i "${DEV}.*MASQUERADE" | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,3})?' )
+	iptables -t nat -D POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
 
 	wg-quick down ${SERVER}
 	rmmod wireguard
@@ -68,6 +74,11 @@ start() {
 	fi
 
 	iptables -I INPUT -p udp -m udp --dport ${CPORT} -j ACCEPT
+	iptables -A FORWARD -o ${DEV} -m conntrack --ctstate NEW -j ACCEPT
+
+	# There -should- be an existing MASQ rule that matches our physical device, so we need to copy it for our virtual tunnel device
+	MASQIP=$( iptables -t nat --list-rules | grep -i "${DEV}.*MASQUERADE" | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,3})?' )
+	iptables -t nat -A POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
 
 }
 
