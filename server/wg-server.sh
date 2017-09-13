@@ -132,6 +132,9 @@ start_nat() {
 start() {
 	server_conf
 
+	[[ -z "$(lsmod|grep wireguard)" ]] && modprobe wireguard
+
+
 	ip link show ${IFACE} >/dev/null 2>&1 || ip link add dev ${IFACE} type wireguard
 	ip address add dev ${IFACE} ${WANv4//.0\//.1\/}
 	for CLIENT in $(grep """\.6wan""" ${WGDIR}/clients.conf | cut -f 1 -d.)

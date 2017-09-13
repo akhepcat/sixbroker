@@ -116,10 +116,10 @@ Address = ${IP4}
 ListenPort = ${CPORT}
 PostUp = ip -4 route replace default dev sixbroker
 PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
-PostUp = ip -6 addr dev sixbroker add ${WANv6%::*}::1/64
+PostUp = ip -6 addr add dev sixbroker ${WANv6%::*}::2/64
+PostDown = ip -6 addr del dev sixbroker ${WANv6%::*}::2/64
 PostDown = ip -4 route replace default via 192.168.1.1
 PostDown = ip -4 route del 10.10.10.1 via 192.168.1.1
-PostDown = ip -6 addr dev sixbroker del ${WANv6%::*}::1/64
 
 [Peer]
 PublicKey = ${SK}
