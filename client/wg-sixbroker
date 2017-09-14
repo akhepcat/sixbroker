@@ -12,9 +12,9 @@ SERVER=${CONFIG//\.*/}
 CONFIG=${WGDIR}/${SERVER}.conf
 HN=$(hostname)
 
-SK=$(cat ${WGDIR}/servers/${SERVER}.publickey)
-HK=$(cat ${WGDIR}/private/${HN}.publickey)
-PK=$(cat ${WGDIR}/private/${HN}.privatekey)
+SK=$(cat ${WGDIR}/servers/${SERVER}.publickey 2>/dev/null)
+HK=$(cat ${WGDIR}/private/${HN}.publickey 2>/dev/null)
+PK=$(cat ${WGDIR}/private/${HN}.privatekey 2>/dev/null)
 
 check_keys() {
         if [ -z "${SK}" ]
@@ -33,11 +33,21 @@ check_keys() {
         then
 		sed -i "s|PrivateKey.*|PrivateKey = ${PK}|g" ${CONFIG}
 	fi
-       
+	if [ -z "${HK}" ]
+	then
+		echo "Can't continue - client publickey is missing!"
+		exit 1
+	fi
 }
 
 stop() {
+	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
 	iptables -D INPUT -p udp -m udp --dport ${CPORT} -j ACCEPT
+	iptables -D FORWARD -o ${DEV} -m conntrack --ctstate NEW -j ACCEPT
+
+	# There -should- be an existing MASQ rule that matches our physical device, so we need to copy it for our virtual tunnel device
+	MASQIP=$( iptables -t nat --list-rules | grep -i "${DEV}.*MASQUERADE" | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,3})?' )
+	iptables -t nat -D POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
 
 	wg-quick down ${SERVER}
 	rmmod wireguard
@@ -49,8 +59,11 @@ start() {
 
 	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
 	DGW=$(ip route show dev ${DEV} | grep default | awk '{print $3}')
-	sed -i "s/\(ip -4 route add .*\) via .*/\1 via ${DGW}/g" ${CONFIG}
+	PEER=$(grep '^Endpoint' ${CONFIG} | sed 's/.*= \(.*\):.*/\1/g;')
+	sed -i "s/\(ip -4 route add\) \(.*\) via .*/\1 ${PEER} via ${DGW}/g" ${CONFIG}
+	sed -i "s/\(ip -4 route del\) \(.*\) via .*/\1 ${PEER} via ${DGW}/g" ${CONFIG}
 	sed -i "s/default dev.*/default dev ${SERVER}/g" ${CONFIG}
+	sed -i "s/default via.*/default via ${DGW}/g" ${CONFIG}
 
 	wg-quick up ${SERVER}
 
@@ -61,6 +74,11 @@ start() {
 	fi
 
 	iptables -I INPUT -p udp -m udp --dport ${CPORT} -j ACCEPT
+	iptables -A FORWARD -o ${DEV} -m conntrack --ctstate NEW -j ACCEPT
+
+	# There -should- be an existing MASQ rule that matches our physical device, so we need to copy it for our virtual tunnel device
+	MASQIP=$( iptables -t nat --list-rules | grep -i "${DEV}.*MASQUERADE" | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,3})?' )
+	iptables -t nat -A POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
 
 }
 
@@ -78,14 +96,14 @@ status() {
 CPORT=$(grep -i 'ListenPort' ${CONFIG} | cut -f 2 -d=)
 
 case ${1} in
-	start) start
+	start) check_keys; start
 		;;
 	stop) stop
 		;;
 	keys) check_keys;
 		grep Key ${CONFIG}
 		;;
-	status) status
+	status) check_keys; status
 		;;
 	*) echo "$0 start|stop|status"
 		;;
