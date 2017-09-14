@@ -18,6 +18,17 @@ then
 fi
 . /etc/default/wgserver
 
+do_help() {
+	echo "server help:"
+	echo "start/up	- Starts the server using the current configuration."
+	echo "stop/down - Stops the server and removes any routes from use."
+	echo "start_nat - Adds IPtables rules to provide NAT functionality (automatic during 'start/up')"
+	echo "stop_nat  - Removes the IPtables rules that provide NAT functionality (automatic during 'stop/down')"
+	echo "clients   - Regenerates the client.conf and the client portion of the server configuration file."
+	echo "server    - Regenerates the server.conf and keys, if needed"
+	echo "status    - Shows the status of the wireguard VPN system"
+	echo ""
+}
 
 do_keys() {
 	server_keys
@@ -37,10 +48,15 @@ client_keys() {
 			wg pubkey < ${WGDIR}/clients/${client} >/dev/null 2>&1
 			if [ $? -eq 0 ]
 			then
+				ACL4=""; ACL6="";
 				[[ -n "${VERBOSE}" ]] && echo "adding new config for ${client//.publickey/}"
+				ACL4=$(grep -i "${client//.publickey/}.4wan" ${WGDIR}/clients.conf | sed 's/.*=//; s|/.*||g; s/ //g')
+				ACL6=$(grep -i "${client//.publickey/}.6wan" ${WGDIR}/clients.conf | sed 's/.*=//; s|/.*||g; s/ //g')
+				[[ -n "${ACL4}" ]] && ACL4="${ACL4}/32" || ACL4="0.0.0.0/0"
+				[[ -n "${ACL6}" ]] && ACL6="${ACL6}2/128" || ACL6="::/0"
 				echo "[Peer]" >> ${WGDIR}/${CONFIG}
 				echo "PublicKey = ${key}" >> ${WGDIR}/${CONFIG}
-				echo "AllowedIPs = 0.0.0.0/0, ::/0"  >> ${WGDIR}/${CONFIG}
+				echo "AllowedIPs = ${ACL4}, ${ACL6}"  >> ${WGDIR}/${CONFIG}
 				echo ""  >> ${WGDIR}/${CONFIG}
 			else
 				[[ -n "${VERBOSE}" ]] && echo "invalid public key for ${client//.publickey/}, skipping"
@@ -51,10 +67,19 @@ client_keys() {
 
 server_conf() {
 	# We need to fix-up the server listen-port.  That's it!
-	
-	if [ -z "$(grep -iw """ListenPort.*${SPORT}""" ${WGDIR}/${CONFIG})" ]
+
+	if [ -r "${WGDIR}/${CONFIG}" ]
 	then
-		sed -i "s/ListenPort.*/ListenPort = ${SPORT}/g" ${WGDIR}/${CONFIG}
+		if [ -z "$(grep -iw """ListenPort.*${SPORT}""" ${WGDIR}/${CONFIG})" ]
+		then
+			sed -i "s/ListenPort.*/ListenPort = ${SPORT}/g" ${WGDIR}/${CONFIG}
+		fi
+	else
+		# conf file doesn't exist, so create it
+		echo "[Interface]" > ${WGDIR}/${CONFIG}
+		echo "ListenPort = ${SPORT}" >> ${WGDIR}/${CONFIG}
+		echo "PrivateKey = " $(cat ${WGDIR}/private/${HN}.privatekey) >> ${WGDIR}/${CONFIG}
+		echo "" >> ${WGDIR}/${CONFIG}
 	fi
 }
 
@@ -84,6 +109,10 @@ server_keys() {
 	fi
 
 	PK=$(head -1 ${WGDIR}/private/${HN}.privatekey)
+	if [ ! -r "${WGDIR}/${CONFIG}" ];
+	then
+		server_conf
+	fi
 	if [ -z "$(grep ${PK} ${WGDIR}/${CONFIG})" ];
 	then
 		[[ -n "${VERBOSE}" ]] && echo "replacing server privatekey in config file"
@@ -202,6 +231,8 @@ case ${1} in
 		;;
 	status) status
 		;;
-	*) echo "${PROG} [start/up|stop/down|status]"
+	help) do_help
+		;;
+	*) echo "${PROG} [start/up|stop/down|status|clients|server|help]"
 		;;
 esac
