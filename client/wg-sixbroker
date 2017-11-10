@@ -41,13 +41,13 @@ check_keys() {
 }
 
 stop() {
-	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
+	DEV=$(sort -n -k +7 /proc/net/route | awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' | head -1)
 	iptables -D INPUT -p udp -m udp --dport ${CPORT} -j ACCEPT
 	iptables -D FORWARD -o ${DEV} -m conntrack --ctstate NEW -j ACCEPT
 
 	# There -should- be an existing MASQ rule that matches our physical device, so we need to copy it for our virtual tunnel device
 	MASQIP=$( iptables -t nat --list-rules | egrep -i "(${DEV})?.*MASQUERADE" | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,3})?' | sort -u | tail -1)
-	iptables -t nat -D POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
+	[[ -n "${MASQIP}" ]] && iptables -t nat -D POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
 
 	wg-quick down ${SERVER}
 	rmmod wireguard
@@ -57,8 +57,8 @@ start() {
 
 	check_keys
 
-	DEV=$(awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' /proc/net/route)
-	DGW=$(ip route show dev ${DEV} | grep default | awk '{print $3}')
+	DEV=$(sort -n -k +7 /proc/net/route | awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' | head -1)
+	DGW=$(ip route show dev ${DEV} proto boot| grep default | sed 's/.*via //g;' | awk '{print $1}')
 	PEER=$(grep '^Endpoint' ${CONFIG} | sed 's/.*= \(.*\):.*/\1/g;')
 	sed -i "s/\(ip -4 route add\) \(.*\) via .*/\1 ${PEER} via ${DGW}/g" ${CONFIG}
 	sed -i "s/\(ip -4 route del\) \(.*\) via .*/\1 ${PEER} via ${DGW}/g" ${CONFIG}
@@ -78,12 +78,37 @@ start() {
 
 	# There -should- be an existing MASQ rule that matches our physical device, so we need to copy it for our virtual tunnel device
 	MASQIP=$( iptables -t nat --list-rules | egrep -i "(${DEV})?.*MASQUERADE" | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,3})?' | sort -u | tail -1)
-	iptables -t nat -A POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
+	[[ -n "${MASQIP}" ]] && iptables -t nat -A POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
 
 }
 
+soft_restart() {
+	do_status
+
+	if [ ${_running} -eq 1 ];
+	then
+		echo "restarting the running service"
+		stop
+		start
+	else
+		echo "not restarting the stopped service"
+		rmmod wireguard >/dev/null 2>&1
+	fi
+}
+		
+do_status() {
+	_running=0
+
+	if [ -n "$( wg show interfaces )" ];
+	then
+		_running=1
+	fi
+}
+	
 status() {
-	if [ -z "$( wg show interfaces )" ];
+	do_status
+
+	if [ ${_running} -eq 1 ]
 	then
 		echo "Not running"
 	else
@@ -105,6 +130,8 @@ case ${1} in
 		;;
 	status) check_keys; status
 		;;
-	*) echo "$0 start|stop|status"
+	restart) soft_restart
+		;;
+	*) echo "$0 start|stop|status|restart"
 		;;
 esac
