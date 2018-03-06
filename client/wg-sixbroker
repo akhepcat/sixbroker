@@ -12,9 +12,23 @@ SERVER=${CONFIG//\.*/}
 CONFIG=${WGDIR}/${SERVER}.conf
 HN=$(hostname)
 
+mkdir -p ${WGDIR}/servers ${WGDIR}/private 
+chmod 700 ${WGDIR}/private
+umask 077
+
 SK=$(cat ${WGDIR}/servers/${SERVER}.publickey 2>/dev/null)
 HK=$(cat ${WGDIR}/private/${HN}.publickey 2>/dev/null)
 PK=$(cat ${WGDIR}/private/${HN}.privatekey 2>/dev/null)
+
+gen_client_key() {
+	if [ -z "${HK}" -a -z "${PK}" ]
+	then
+		wg genkey > ${WGDIR}/private/${HN}.privatekey
+		wg pubkey < ${WGDIR}/private/${HN}.privatekey > ${WGDIR}/private/${HN}.publickey
+	fi
+	echo "New client keys generated.  Submit the public key to the server to generate the server-side config."
+	exit 0
+}
 
 check_keys() {
         if [ -z "${SK}" ]
@@ -119,6 +133,8 @@ status() {
 }
 
 CPORT=$(grep -i 'ListenPort' ${CONFIG} | cut -f 2 -d=)
+
+gen_client_key
 
 case ${1} in
 	start) check_keys; start
