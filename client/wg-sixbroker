@@ -25,9 +25,9 @@ gen_client_key() {
 	then
 		wg genkey > ${WGDIR}/private/${HN}.privatekey
 		wg pubkey < ${WGDIR}/private/${HN}.privatekey > ${WGDIR}/private/${HN}.publickey
+		echo "New client keys generated.  Submit the public key to the server to generate the server-side config."
+		exit 0
 	fi
-	echo "New client keys generated.  Submit the public key to the server to generate the server-side config."
-	exit 0
 }
 
 check_keys() {
