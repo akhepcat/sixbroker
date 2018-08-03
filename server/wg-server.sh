@@ -197,7 +197,7 @@ stop_nat() {
 
 stop() {
 	echo -n "wg server is "
-	if [ -n "$(wg show)" ]
+	if [ -n "$(wg show 2>/dev/null)" ]
 	then
 		iptables -D INPUT -p udp -m udp --dport ${SPORT} -j ACCEPT
 
@@ -220,6 +220,8 @@ case ${1} in
 	start|up) do_keys && start
 		;;
 	stop|down) stop
+		;;
+	stop-upg) echo "stopping wg interfaces due to module upgrade"; stop
 		;;
 	start_nat) start_nat
 		;;
