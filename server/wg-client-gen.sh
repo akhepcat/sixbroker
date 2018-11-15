@@ -104,6 +104,7 @@ create() {
 	MyIntIPv4=${MyIntIPv4%%/*}
 
 	echo "${client}.4wan = ${IP4}" >> ${WGDIR}/clients.conf
+	echo "${client}.4nat = 0" >> ${WGDIR}/clients.conf
 	echo "${client}.6wan = ${WANv6%/*}/64" >> ${WGDIR}/clients.conf
 	echo "${client}.6lan = ${LANv6%/*}/56" >> ${WGDIR}/clients.conf
 	echo ""  >> ${WGDIR}/clients.conf
@@ -113,6 +114,7 @@ create() {
 	echo "[Interface]
 PrivateKey = [pending]
 Address = ${IP4}
+Address = ${WANv6%::*}::2/64
 ListenPort = ${CPORT}
 PostUp = ip -4 route replace default dev sixbroker
 PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
