@@ -21,6 +21,26 @@ ip2dec () {
     return 0
 }
 
+getyesno() {
+	local yn prompt="$@"
+
+	while true
+	do
+		echo -n "$prompt"
+		read yn
+		yn=${yn,,}
+		yn=${yn//[^yn]}
+		if [ "$yn" = "y" ]
+		then
+			return 1
+		elif [ "$yn" = "n" ]
+		then
+			return 0
+		else
+			echo "invalid response"
+		fi
+	done
+}
 
 create() {
 	echo -n "client name: "
@@ -29,6 +49,12 @@ create() {
 	echo -n "client public key: "
 	read pk
 
+	getyesno "use ipv4 full nat (y/n)? "
+	v4ok=$?
+	
+	getyesno "use ipv6 routing (y/n)? "
+	v6ok=$?
+	
 	echo -n "Generating config..."
 
 	if [ -r ${WGDIR}/client-cfgs/${client}.conf ]
@@ -46,6 +72,8 @@ create() {
 		SK=$(cat  ${WGDIR}/private/${HN}.publickey)
 	fi
 
+	# WANv4 and IFACE should be set in the server config file, which is read by the main section
+	test -z "${WANv4}" && WANv4=$(ip route show dev ${IFACE:-wg-hub} | awk '{print $1}')
 	IP4SNb=${WANv4##*/}			# subnet bits
 	IP4SNs=$(( 2 ** ( 32 - IP4SNb) ))	# Max addresses
 
@@ -104,29 +132,42 @@ create() {
 	MyIntIPv4=${MyIntIPv4%%/*}
 
 	echo "${client}.4wan = ${IP4}" >> ${WGDIR}/clients.conf
-	echo "${client}.4nat = 0" >> ${WGDIR}/clients.conf
+	echo "${client}.4nat = ${v4ok}" >> ${WGDIR}/clients.conf
 	echo "${client}.6wan = ${WANv6%/*}/64" >> ${WGDIR}/clients.conf
 	echo "${client}.6lan = ${LANv6%/*}/56" >> ${WGDIR}/clients.conf
 	echo ""  >> ${WGDIR}/clients.conf
 
 	mkdir -p ${WGDIR}/client-cfgs/
 
+	if [ $v4ok -eq 1 ]; then
+		# use nat
+		OKIP4="0.0.0.0/0"
+	else
+		OKIP4="${WANv4}"
+	fi
+	if [ $v6ok -eq 1 ]; then
+		# use nat
+		OKIP6="::/0"
+	else
+		OKIP6="${WANv6},${LANv6}"
+	fi
+
 	echo "[Interface]
 PrivateKey = [pending]
 Address = ${IP4}
 Address = ${WANv6%::*}::2/64
 ListenPort = ${CPORT}
-PostUp = ip -4 route replace default dev sixbroker
-PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
-PostUp = ip -6 addr add dev sixbroker ${WANv6%::*}::2/64
-PostDown = ip -6 addr del dev sixbroker ${WANv6%::*}::2/64
-PostDown = ip -4 route replace default via 192.168.1.1
-PostDown = ip -4 route del 10.10.10.1 via 192.168.1.1
+#PostUp = ip -4 route replace default dev sixbroker
+#PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
+#PostUp = ip -6 addr add dev sixbroker ${WANv6%::*}::2/64
+#PostDown = ip -6 addr del dev sixbroker ${WANv6%::*}::2/64
+#PostDown = ip -4 route replace default via 192.168.1.1
+#PostDown = ip -4 route del 10.10.10.1 via 192.168.1.1
 
 [Peer]
 PublicKey = ${SK}
 Endpoint = ${MyIntIPv4}:${SPORT}
-AllowedIPs = 0.0.0.0/0, ::/0
+AllowedIPs = ${OKIP4}, ${OKIP6}
 PersistentKeepalive = 25
 " >${WGDIR}/client-cfgs/${client}.conf
 
@@ -180,7 +221,7 @@ remove() {
 
 	if [ "${remove:-n}" = "y" ]
 	then
-		sed -i "/${client}.[46][lw]an/ { d; }" ${WGDIR}/clients.conf
+		sed -i "/${client}.[46][lw]an/ { d; }; /${client}.[46]nat/ { d; }" ${WGDIR}/clients.conf
 		rm -f "${WGDIR}/clients/${client}.publickey" "${WGDIR}/client-cfgs/${client}.conf"
 		
 		echo "client ${client} has been removed"
