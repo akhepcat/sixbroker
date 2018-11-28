@@ -55,6 +55,13 @@ create() {
 	getyesno "use ipv6 routing (y/n)? "
 	v6ok=$?
 	
+	getyesno "use custom DNS (y/n)? "
+	if [ $? -eq 1 ];
+	then
+		echo -n "enter list of DNS servers, separated by a space"
+		read DNS
+	fi
+
 	echo -n "Generating config..."
 
 	if [ -r ${WGDIR}/client-cfgs/${client}.conf ]
@@ -157,9 +164,15 @@ PrivateKey = [pending]
 Address = ${IP4}
 Address = ${WANv6%::*}::2/64
 ListenPort = ${CPORT}
-#PostUp = ip -4 route replace default dev sixbroker
+" >${WGDIR}/client-cfgs/${client}.conf
+
+	for server in ${DNS}; do echo "DNS = ${server}" >>${WGDIR}/client-cfgs/${client}.conf; done
+
+	echo "#PostUp = ip -4 route replace default dev sixbroker
 #PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
 #PostUp = ip -6 addr add dev sixbroker ${WANv6%::*}::2/64
+#PostUp = ip -6 addr add dev LANIF ${LANv6%::*}::1/56
+#PostDown = ip -6 addr del dev LANIF ${LANv6%::*}::1/56
 #PostDown = ip -6 addr del dev sixbroker ${WANv6%::*}::2/64
 #PostDown = ip -4 route replace default via 192.168.1.1
 #PostDown = ip -4 route del 10.10.10.1 via 192.168.1.1
@@ -169,7 +182,7 @@ PublicKey = ${SK}
 Endpoint = ${MyIntIPv4}:${SPORT}
 AllowedIPs = ${OKIP4}, ${OKIP6}
 PersistentKeepalive = 25
-" >${WGDIR}/client-cfgs/${client}.conf
+" >>${WGDIR}/client-cfgs/${client}.conf
 
 	echo "${pk}" > ${WGDIR}/clients/${client}.publickey
 
