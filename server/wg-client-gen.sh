@@ -49,17 +49,20 @@ create() {
 	echo -n "client public key: "
 	read pk
 
-	getyesno "use ipv4 full nat (y/n)? "
-	v4ok=$?
-	
 	getyesno "use ipv6 routing (y/n)? "
 	v6ok=$?
 	
-	getyesno "use custom DNS (y/n)? "
-	if [ $? -eq 1 ];
+	getyesno "use ipv4 full nat (y/n)? "
+	v4ok=$?
+	
+	if [ $v4ok -eq 1 ]
 	then
-		echo -n "enter list of DNS servers, separated by a space"
-		read DNS
+		getyesno "use custom DNS (y/n)? "
+		if [ $? -eq 1 ];
+		then
+			echo -n "enter list of DNS servers, separated by a space"
+			read DNS
+		fi
 	fi
 
 	echo -n "Generating config..."
@@ -166,7 +169,10 @@ Address = ${WANv6%::*}::2/64
 ListenPort = ${CPORT}
 " >${WGDIR}/client-cfgs/${client}.conf
 
-	for server in ${DNS}; do echo "DNS = ${server}" >>${WGDIR}/client-cfgs/${client}.conf; done
+	if [ ${v4ok} -eq 1 ]
+	then
+		for server in ${DNS}; do echo "DNS = ${server}" >>${WGDIR}/client-cfgs/${client}.conf; done
+	fi
 
 	echo "#PostUp = ip -4 route replace default dev sixbroker
 #PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
