@@ -174,12 +174,12 @@ ListenPort = ${CPORT}
 		for server in ${DNS}; do echo "DNS = ${server}" >>${WGDIR}/client-cfgs/${client}.conf; done
 	fi
 
-	echo "#PostUp = ip -4 route replace default dev sixbroker
+	echo "#PostUp = ip -4 route replace default dev %i
 #PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
-#PostUp = ip -6 addr add dev sixbroker ${WANv6%::*}::2/64
+#PostUp = ip -6 addr add dev %i ${WANv6%::*}::2/64
 #PostUp = ip -6 addr add dev LANIF ${LANv6%::*}::1/56
 #PostDown = ip -6 addr del dev LANIF ${LANv6%::*}::1/56
-#PostDown = ip -6 addr del dev sixbroker ${WANv6%::*}::2/64
+#PostDown = ip -6 addr del dev %i ${WANv6%::*}::2/64
 #PostDown = ip -4 route replace default via 192.168.1.1
 #PostDown = ip -4 route del 10.10.10.1 via 192.168.1.1
 
