@@ -26,8 +26,17 @@ do_help() {
 	echo "stop_nat  - Removes the IPtables rules that provide NAT functionality (automatic during 'stop/down')"
 	echo "clients   - Regenerates the client.conf and the client portion of the server configuration file."
 	echo "server    - Regenerates the server.conf and keys, if needed"
+	echo "log	- enables kernel logging"
+	echo "nolog	- disables kernel logging"
 	echo "status    - Shows the status of the wireguard VPN system"
 	echo ""
+}
+
+log() {
+	echo "module wireguard +p" > /sys/kernel/debug/dynamic_debug/control || echo "dynamic debugging not supported in this kernel"
+}
+unlog() {
+	echo "module wireguard -p" > /sys/kernel/debug/dynamic_debug/control || echo "dynamic debugging not supported in this kernel"
 }
 
 do_keys() {
@@ -232,6 +241,10 @@ case ${1} in
 	server) server_keys verbose
 		;;
 	status) status
+		;;
+	log) log
+		;;
+	unlog) unlog
 		;;
 	help) do_help
 		;;
