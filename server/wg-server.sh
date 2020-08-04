@@ -20,15 +20,15 @@ fi
 
 do_help() {
 	echo "server help:"
-	echo "start/up	- Starts the server using the current configuration."
-	echo "stop/down - Stops the server and removes any routes from use."
-	echo "start_nat - Adds IPtables rules to provide NAT functionality (automatic during 'start/up')"
-	echo "stop_nat  - Removes the IPtables rules that provide NAT functionality (automatic during 'stop/down')"
-	echo "clients   - Regenerates the client.conf and the client portion of the server configuration file."
-	echo "server    - Regenerates the server.conf and keys, if needed"
-	echo "log	- enables kernel logging"
-	echo "nolog	- disables kernel logging"
-	echo "status    - Shows the status of the wireguard VPN system"
+	echo "   start/up	- Starts the server using the current configuration."
+	echo "   stop/down - Stops the server and removes any routes from use."
+	echo "   start_nat - Adds IPtables rules to provide NAT functionality (automatic during 'start/up')"
+	echo "   stop_nat  - Removes the IPtables rules that provide NAT functionality (automatic during 'stop/down')"
+	echo "   clients   - Regenerates the client.conf and the client portion of the server configuration file."
+	echo "   server    - Regenerates the server.conf and keys, if needed"
+	echo "   log	- enables kernel logging"
+	echo "   nolog	- disables kernel logging"
+	echo "   status    - Shows the status of the wireguard VPN system"
 	echo ""
 }
 
@@ -248,6 +248,6 @@ case ${1} in
 		;;
 	help) do_help
 		;;
-	*) echo "${PROG} [start/up|stop/down|status|clients|server|help]"
+	*) echo "${PROG} [start/up|stop/down|status|clients|server|log|unlog|start_nat|stop_nat|help]"
 		;;
 esac
