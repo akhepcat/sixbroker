@@ -27,6 +27,7 @@ do_help() {
 	echo "   clients   - Regenerates the client.conf and the client portion of the server configuration file."
 	echo "   server    - Regenerates the server.conf and keys, if needed"
 	echo "   log	- enables kernel logging"
+	echo "   livelog	- displays live wireguard kernel logs"
 	echo "   nolog	- disables kernel logging"
 	echo "   status    - Shows the status of the wireguard VPN system"
 	echo ""
@@ -34,6 +35,9 @@ do_help() {
 
 log() {
 	echo "module wireguard +p" > /sys/kernel/debug/dynamic_debug/control || echo "dynamic debugging not supported in this kernel"
+}
+livelog() {
+	dmesg -w | grep -i wireguard
 }
 unlog() {
 	echo "module wireguard -p" > /sys/kernel/debug/dynamic_debug/control || echo "dynamic debugging not supported in this kernel"
@@ -246,8 +250,10 @@ case ${1} in
 		;;
 	unlog) unlog
 		;;
+	livelog) livelog
+		;;
 	help) do_help
 		;;
-	*) echo "${PROG} [start/up|stop/down|status|clients|server|log|unlog|start_nat|stop_nat|help]"
+	*) echo "${PROG} [start/up|stop/down|status|clients|server|log|livelog|unlog|start_nat|stop_nat|help]"
 		;;
 esac
