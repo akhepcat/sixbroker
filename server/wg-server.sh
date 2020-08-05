@@ -64,12 +64,14 @@ client_keys() {
 				ACL4=""; ACL6="";
 				[[ -n "${VERBOSE}" ]] && echo "adding new config for ${client//.publickey/}"
 				ACL4=$(grep -i "${client//.publickey/}.4wan" ${WGDIR}/clients.conf | sed 's/.*=//; s|/.*||g; s/ //g')
-				ACL6=$(grep -i "${client//.publickey/}.6wan" ${WGDIR}/clients.conf | sed 's/.*=//; s|/.*||g; s/ //g')
+				ACL6w=$(grep -i "${client//.publickey/}.6wan" ${WGDIR}/clients.conf | sed 's/.*=//; s/ //g')
+				ACL6l=$(grep -i "${client//.publickey/}.6lan" ${WGDIR}/clients.conf | sed 's/.*=//; s/ //g')
 				[[ -n "${ACL4}" ]] && ACL4="${ACL4}/32" || ACL4="0.0.0.0/0"
-				[[ -n "${ACL6}" ]] && ACL6="${ACL6}2/128" || ACL6="::/0"
+				[[ -z "${ACL6w}" ]] && ACL6w="::/0"
+				if [ -z "${ACL6l}" -a "${ACL6w}" != "::/0" ]; then ACL6l="::/0"; fi
 				echo "[Peer]" >> ${WGDIR}/${CONFIG}
 				echo "PublicKey = ${key}" >> ${WGDIR}/${CONFIG}
-				echo "AllowedIPs = ${ACL4}, ${ACL6}"  >> ${WGDIR}/${CONFIG}
+				echo "AllowedIPs = ${ACL4}, ${ACL6w}${ACL6l:+, $ACL6l}"  >> ${WGDIR}/${CONFIG}
 				echo ""  >> ${WGDIR}/${CONFIG}
 			else
 				[[ -n "${VERBOSE}" ]] && echo "invalid public key for ${client//.publickey/}, skipping"
@@ -93,6 +95,7 @@ server_conf() {
 		echo "ListenPort = ${SPORT}" >> ${WGDIR}/${CONFIG}
 		echo "PrivateKey = " $(cat ${WGDIR}/private/${HN}.privatekey) >> ${WGDIR}/${CONFIG}
 		echo "" >> ${WGDIR}/${CONFIG}
+		client_keys
 	fi
 }
 
