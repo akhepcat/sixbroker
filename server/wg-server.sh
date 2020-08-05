@@ -237,6 +237,8 @@ case ${1} in
 		;;
 	stop|down) stop
 		;;
+	restart) stop; sleep 1; start
+		;;
 	stop-upg) echo "stopping wg interfaces due to module upgrade"; stop
 		;;
 	start_nat) start_nat
@@ -257,6 +259,6 @@ case ${1} in
 		;;
 	help) do_help
 		;;
-	*) echo "${PROG} [start/up|stop/down|status|clients|server|log|livelog|unlog|start_nat|stop_nat|help]"
+	*) echo "${PROG} [start/up|stop/down|restart|status|clients|server|log|livelog|unlog|start_nat|stop_nat|help]"
 		;;
 esac
