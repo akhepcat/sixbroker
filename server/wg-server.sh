@@ -22,6 +22,7 @@ do_help() {
 	echo "server help:"
 	echo "   start/up	- Starts the server using the current configuration."
 	echo "   stop/down - Stops the server and removes any routes from use."
+	echo "   restart	- stop, then start the server again."
 	echo "   start_nat - Adds IPtables rules to provide NAT functionality (automatic during 'start/up')"
 	echo "   stop_nat  - Removes the IPtables rules that provide NAT functionality (automatic during 'stop/down')"
 	echo "   clients   - Regenerates the client.conf and the client portion of the server configuration file."
