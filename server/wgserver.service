@@ -1,0 +1,16 @@
+[Unit]
+Description=Wireguard Server starter
+After=network.target
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+Group=root
+ExecStart=/etc/wireguard/wg-server.sh start
+ExecStop=/etc/wireguard/wg-server.sh stop
+
+[Install]
+WantedBy=multi-user.target
