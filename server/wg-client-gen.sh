@@ -202,21 +202,23 @@ PersistentKeepalive = 25
 EOF
 
 	echo "...done"
-	if [ -n "${prvk}" ]
+	if [ -n "$(which qrencode 2>/dev/null)" ]
 	then
-		if [ -n "$(which qrencode 2>/dev/null)" ]
-		then
-			cat <<EOF
+		cat <<EOF
 Generate a client-cfg qr-code with the following command:
     ascii:
 	qrencode -t ANSIUTF8 < "${WGDIR}/client-cfgs/${client}.conf"
     png:
 	qrencode -t PNG -o "${client}-qr.png" < "${WGDIR}/client-cfgs/${client}.conf"
 EOF
-		fi
-	else
-		echo "Be sure to edit \"${WGDIR}/client-cfgs/${client}.conf\" and add the client's private key before restarting the wg server"
-		echo "Failure to do so will prevent the new client from connecting"
+	fi
+	if [ -n "${prvk}" ]
+	then
+		cat <<EOF
+Be sure to add the client's private key to "${WGDIR}/client-cfgs/${client}.conf"
+before generating a qrcode, or distributing and importing the client config file.
+Failure to do so will result in the client not being able to connect.
+EOF
 	fi
 }
 ### end of create()
