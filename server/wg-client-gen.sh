@@ -46,8 +46,8 @@ create() {
 	echo -n "client name: "
 	read client
 
-	echo -n "client public key: "
-	read pk
+	echo -n "client public key (empty to generate new private/pub keys): "
+	read pubk
 
 	getyesno "use ipv6 routing (y/n)? "
 	v6ok=$?
@@ -67,23 +67,23 @@ create() {
 
 	echo -n "Generating config..."
 
-	if [ -r ${WGDIR}/client-cfgs/${client}.conf ]
+	if [ -r "${WGDIR}/client-cfgs/${client}.conf" ]
 	then
 		echo -e "failed.\n ${client} configuration already exists."
-		ls -alF ${WGDIR}/client-cfgs/${client}.conf
+		ls -alF "${WGDIR}/client-cfgs/${client}.conf"
 		exit 1
 	fi
 
-        if [ ! -r ${WGDIR}/private/${HN}.publickey ]; 
+        if [ ! -r "${WGDIR}/private/${HN}.publickey" ]; 
         then
 		echo "failed reading server public key.  Can't continue."
 		exit 1
 	else
-		SK=$(cat  ${WGDIR}/private/${HN}.publickey)
+		SK=$(cat "${WGDIR}/private/${HN}.publickey")
 	fi
 
 	# WANv4 and IFACE should be set in the server config file, which is read by the main section
-	test -z "${WANv4}" && WANv4=$(ip route show dev ${IFACE:-wg-hub} | awk '{print $1}')
+	test -z "${WANv4}" && WANv4=$(ip route show dev "${IFACE:-wg-hub}" | awk '{print $1}')
 	IP4SNb=${WANv4##*/}			# subnet bits
 	IP4SNs=$(( 2 ** ( 32 - IP4SNb) ))	# Max addresses
 
@@ -141,13 +141,13 @@ create() {
 	MyIntIPv4=${MyIntIPv4%%brd*}
 	MyIntIPv4=${MyIntIPv4%%/*}
 
-	echo "${client}.4wan = ${IP4}" >> ${WGDIR}/clients.conf
-	echo "${client}.4nat = ${v4ok}" >> ${WGDIR}/clients.conf
-	echo "${client}.6wan = ${WANv6%/*}/64" >> ${WGDIR}/clients.conf
-	echo "${client}.6lan = ${LANv6%/*}/56" >> ${WGDIR}/clients.conf
-	echo ""  >> ${WGDIR}/clients.conf
+	echo "${client}.4wan = ${IP4}" >> "${WGDIR}/clients.conf"
+	echo "${client}.4nat = ${v4ok}" >> "${WGDIR}/clients.conf"
+	echo "${client}.6wan = ${WANv6%/*}/64" >> "${WGDIR}/clients.conf"
+	echo "${client}.6lan = ${LANv6%/*}/56" >> "${WGDIR}/clients.conf"
+	echo ""  >> "${WGDIR}/clients.conf"
 
-	mkdir -p ${WGDIR}/client-cfgs/
+	mkdir -p "${WGDIR}/client-cfgs"
 
 	if [ $v4ok -eq 1 ]; then
 		# use nat
@@ -162,19 +162,31 @@ create() {
 		OKIP6="${WANv6},${LANv6}"
 	fi
 
-	echo "[Interface]
-PrivateKey = [pending]
+       	if [ -z "${pubk}" ]
+       	then
+       		# generate new client *private* key; insecure, but useful for generating complete client-configs with qr-codes
+       		wg genkey > "${WGDIR}/private/${client}.privatekey"
+       		wg pubkey < "${WGDIR}/private/${client}.privatekey" > "${WGDIR}/clients/${client}.publickey"
+       		prvk=$(cat "${WGDIR}/private/${client}.privatekey")
+       		pubk=$(cat "${WGDIR}/clients/${client}.publickey")
+	else
+		echo "${pubk}" "> ${WGDIR}/clients/${client}.publickey"
+	fi
+
+	cat >"${WGDIR}/client-cfgs/${client}.conf" <<EOF
+[Interface]
+PrivateKey = ${prvk:-[pending]}
 Address = ${IP4}
 Address = ${WANv6%::*}::2/64
 ListenPort = ${CPORT}
-" >${WGDIR}/client-cfgs/${client}.conf
-
+EOF
 	if [ ${v4ok} -eq 1 ]
 	then
-		for server in ${DNS}; do echo "DNS = ${server}" >>${WGDIR}/client-cfgs/${client}.conf; done
+		for server in ${DNS}; do echo "DNS = ${server}" >>"${WGDIR}/client-cfgs/${client}.conf"; done
 	fi
 
-	echo "#PostUp = ip -4 route replace default dev %i
+	cat >>"${WGDIR}/client-cfgs/${client}.conf" <<EOF
+#PostUp = ip -4 route replace default dev %i
 #PostUp = ip -4 route add 10.10.10.1 via 192.168.1.1
 #PostUp = ip -6 addr add dev %i ${WANv6%::*}::2/64
 #PostUp = ip -6 addr add dev LANIF ${LANv6%::*}::1/56
@@ -188,11 +200,19 @@ PublicKey = ${SK}
 Endpoint = ${MyIntIPv4}:${SPORT}
 AllowedIPs = ${OKIP4}, ${OKIP6}
 PersistentKeepalive = 25
-" >>${WGDIR}/client-cfgs/${client}.conf
-
-	echo "${pk}" > ${WGDIR}/clients/${client}.publickey
+EOF
 
 	echo "...done"
+	if [ -n "$(which qrencode 2>/dev/null)" ]
+	then
+	cat <<EOF
+Generate a client-cfg qr-code with the following command:
+    ascii:
+	qrencode -t ANSIUTF8 < "${WGDIR}/client-cfgs/${client}.conf"
+    png:
+	qrencode -t PNG -o "${client}-qr.png" < "${WGDIR}/client-cfgs/${client}.conf"
+EOF
+	fi
 }
 ### end of create()
 
@@ -204,7 +224,7 @@ remove() {
 
 	if [ -n "${client}" -a -r "${WGDIR}/client-cfgs/${client}.conf" ]
 	then
-		ls -alF ${WGDIR}/client-cfgs/${client}.conf
+		ls -alF "${WGDIR}/client-cfgs/${client}.conf"
 	else
 		echo "Can't find config file for ${client:-(null)}"
 		ERR=$((${ERR} + 1))
@@ -218,20 +238,21 @@ remove() {
 		ERR=$((${ERR} + 1))
 	fi
 
-	if [ -n "${client}" -a -n "$(grep -iE """${client}\.[46][lw]an""" ${WGDIR}/clients.conf)" ]
+	if [ -n "${client}" -a -r "${WGDIR}/private/${client}.privatekey" ]
 	then
-		grep -iE "${client}\.[46][lw]an" ${WGDIR}/clients.conf
+		ls -alF "${WGDIR}/private/${client}.privatekey"
+	else
+		echo "Can't find private keyfile for ${client:-(null)} (ignored)"
+	fi
+
+	if [ -n "${client}" -a -n "$(grep -iE """${client}\.[46][lw]an""" """${WGDIR}/clients.conf""")" ]
+	then
+		grep -iE "${client}\.[46][lw]an" "${WGDIR}/clients.conf"
 	else
 		echo "Can't find network config for ${client:-(null)}"
 		ERR=$((${ERR} + 1))
 	fi
 
-	if [ ${ERR} -gt 0 ]
-	then
-		echo "one or more errors occured.  Please clean up manually"
-		exit 1
-	fi
-	
 	echo -en "\nReally remove client ${client}? "
 	read remove
 	
@@ -240,10 +261,16 @@ remove() {
 
 	if [ "${remove:-n}" = "y" ]
 	then
-		sed -i "/${client}.[46][lw]an/ { d; }; /${client}.[46]nat/ { d; }" ${WGDIR}/clients.conf
-		rm -f "${WGDIR}/clients/${client}.publickey" "${WGDIR}/client-cfgs/${client}.conf"
+		sed -i "/${client}.[46][lw]an/ { d; }; /${client}.[46]nat/ { d; }" "${WGDIR}/clients.conf"
+		rm -f "${WGDIR}/private/${client}.privatekey" "${WGDIR}/clients/${client}.publickey" "${WGDIR}/client-cfgs/${client}.conf"
 		
 		echo "client ${client} has been removed"
+
+		if [ ${ERR} -gt 0 ]
+		then
+			echo "one or more errors occured.  Please clean up manually"
+			exit 1
+		fi
 	else
 		echo "client not removed"
 		
