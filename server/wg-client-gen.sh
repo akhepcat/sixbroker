@@ -148,6 +148,7 @@ create() {
 	echo ""  >> "${WGDIR}/clients.conf"
 
 	mkdir -p "${WGDIR}/client-cfgs"
+	chmod -R o-rwx "${WGDIR}"	# we always run as root, so non-root users should never have access in here
 
 	if [ $v4ok -eq 1 ]; then
 		# use nat
