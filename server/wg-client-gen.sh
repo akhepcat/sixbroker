@@ -165,9 +165,8 @@ create() {
        	if [ -z "${pubk}" ]
        	then
        		# generate new client *private* key; insecure, but useful for generating complete client-configs with qr-codes
-       		wg genkey > "${WGDIR}/private/${client}.privatekey"
-       		wg pubkey < "${WGDIR}/private/${client}.privatekey" > "${WGDIR}/clients/${client}.publickey"
-       		prvk=$(cat "${WGDIR}/private/${client}.privatekey")
+       		prvk=$(wg genkey)
+       		echo "${prvk}" | wg pubkey > "${WGDIR}/clients/${client}.publickey"
        		pubk=$(cat "${WGDIR}/clients/${client}.publickey")
 	else
 		echo "${pubk}" "> ${WGDIR}/clients/${client}.publickey"
@@ -203,15 +202,21 @@ PersistentKeepalive = 25
 EOF
 
 	echo "...done"
-	if [ -n "$(which qrencode 2>/dev/null)" ]
+	if [ -n "${prvk}" ]
 	then
-	cat <<EOF
+		if [ -n "$(which qrencode 2>/dev/null)" ]
+		then
+			cat <<EOF
 Generate a client-cfg qr-code with the following command:
     ascii:
 	qrencode -t ANSIUTF8 < "${WGDIR}/client-cfgs/${client}.conf"
     png:
 	qrencode -t PNG -o "${client}-qr.png" < "${WGDIR}/client-cfgs/${client}.conf"
 EOF
+		fi
+	else
+		echo "Be sure to edit \"${WGDIR}/client-cfgs/${client}.conf\" and add the client's private key before restarting the wg server"
+		echo "Failure to do so will prevent the new client from connecting"
 	fi
 }
 ### end of create()
@@ -238,13 +243,6 @@ remove() {
 		ERR=$((${ERR} + 1))
 	fi
 
-	if [ -n "${client}" -a -r "${WGDIR}/private/${client}.privatekey" ]
-	then
-		ls -alF "${WGDIR}/private/${client}.privatekey"
-	else
-		echo "Can't find private keyfile for ${client:-(null)} (ignored)"
-	fi
-
 	if [ -n "${client}" -a -n "$(grep -iE """${client}\.[46][lw]an""" """${WGDIR}/clients.conf""")" ]
 	then
 		grep -iE "${client}\.[46][lw]an" "${WGDIR}/clients.conf"
@@ -262,7 +260,7 @@ remove() {
 	if [ "${remove:-n}" = "y" ]
 	then
 		sed -i "/${client}.[46][lw]an/ { d; }; /${client}.[46]nat/ { d; }" "${WGDIR}/clients.conf"
-		rm -f "${WGDIR}/private/${client}.privatekey" "${WGDIR}/clients/${client}.publickey" "${WGDIR}/client-cfgs/${client}.conf"
+		rm -f "${WGDIR}/clients/${client}.publickey" "${WGDIR}/client-cfgs/${client}.conf"
 		
 		echo "client ${client} has been removed"
 
