@@ -55,7 +55,7 @@ check_keys() {
 }
 
 stop() {
-	DEV=$(sort -n -k +7 /proc/net/route | awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' | head -1)
+	DEV=$(sort -n -k +7 /proc/net/route | awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9-]+[ \t]+00000000/ { print $1 }' | head -1)
 	iptables -D INPUT -p udp -m udp --dport ${CPORT} -j ACCEPT
 	iptables -D FORWARD -o ${DEV} -m conntrack --ctstate NEW -j ACCEPT
 
@@ -65,13 +65,14 @@ stop() {
 
 	wg-quick down ${SERVER}
 	rmmod wireguard
+	true
 }
 
 start() {
 
 	check_keys
 
-	DEV=$(sort -n -k +7 /proc/net/route | awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9]+[ \t]+00000000/ { print $1 }' | head -1)
+	DEV=$(sort -n -k +7 /proc/net/route | awk 'BEGIN { IGNORECASE=1 } /^[a-z0-9-]+[ \t]+00000000/ { print $1 }' | head -1)
 	DGW=$(ip route show dev ${DEV} proto boot| grep default | sed 's/.*via //g;' | awk '{print $1}')
 	PEER=$(grep '^Endpoint' ${CONFIG} | sed 's/.*= \(.*\):.*/\1/g;')
 	sed -i "s/\(ip -4 route add\) \(.*\) via .*/\1 ${PEER} via ${DGW}/g" ${CONFIG}
@@ -84,6 +85,7 @@ start() {
 	WANv6=$(grep 'ip -6 addr add' ${CONFIG} | sed 's/.*ip -6 addr add //g; s/dev sixbroker//g;')
 	if [ -n "${WANv6}" ];
 	then
+		WANv6=${WANv6##* }
 		ip route add ::/0 via ${WANv6//::*/::1} dev ${SERVER}
 	fi
 
@@ -93,6 +95,7 @@ start() {
 	# There -should- be an existing MASQ rule that matches our physical device, so we need to copy it for our virtual tunnel device
 	MASQIP=$( iptables -t nat --list-rules | egrep -i "(${DEV})?.*MASQUERADE" | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,3})?' | sort -u | tail -1)
 	[[ -n "${MASQIP}" ]] && iptables -t nat -A POSTROUTING -s ${MASQIP} -o ${SERVER} -j MASQUERADE
+	true
 
 }
 
