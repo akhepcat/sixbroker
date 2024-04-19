@@ -12,6 +12,15 @@ SERVER=${CONFIG//\.*/}
 CONFIG=${WGDIR}/${SERVER}.conf
 HN=$(hostname)
 
+for REQ in wg iptables
+do
+	if [ -z "$(which ${REQ} 2>/dev/null)" ]
+	then
+		echo "ERROR: Prerequisite -${REQ}- not found, please install the appropriate package"
+		exit 1
+	fi
+done
+
 mkdir -p ${WGDIR}/servers ${WGDIR}/private 
 chmod 700 ${WGDIR}/private
 umask 077
@@ -35,7 +44,7 @@ check_keys() {
         then
         	echo "Can't continue - server publickey is missing!"
         	exit 1
-        elif [ -z "$(grep ${SK} ${CONFIG})" ];
+        elif [ -z "$(grep ${SK} ${CONFIG} 2>/dev/null)" ];
         then
                 sed -i "s|PublicKey.*|PublicKey = ${SK}|g" ${CONFIG}
         fi
@@ -43,7 +52,7 @@ check_keys() {
         then
         	echo "Can't continue - client privatekey is missing!"
         	exit 1
-        elif [ -z "$(grep ${PK} ${CONFIG})" ];
+        elif [ -z "$(grep ${PK} ${CONFIG} 2>/dev/null)" ];
         then
 		sed -i "s|PrivateKey.*|PrivateKey = ${PK}|g" ${CONFIG}
 	fi
@@ -135,7 +144,13 @@ status() {
 	fi
 }
 
-CPORT=$(grep -i 'ListenPort' ${CONFIG} | cut -f 2 -d=)
+if [ ! -r "${CONFIG}" ];
+then
+	echo "Can't read config file ${CONFIG}, exiting"
+	exit 1
+fi
+
+CPORT=$(grep -i 'ListenPort' ${CONFIG} 2>/dev/null | cut -f 2 -d=)
 
 gen_client_key
 
