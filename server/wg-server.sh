@@ -180,9 +180,14 @@ start() {
 
 	[[ -z "$(lsmod|grep wireguard)" ]] && modprobe wireguard
 
-
 	ip link show ${IFACE} >/dev/null 2>&1 || ip link add dev ${IFACE} type wireguard
 	ip address add dev ${IFACE} ${WANv4//.0\//.1\/}
+
+	ip link set ${IFACE} up
+	echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+
+	wg setconf ${IFACE}  ${WGDIR}/${CONFIG}
+
 	for CLIENT in $(grep """\.6wan""" ${WGDIR}/clients.conf | cut -f 1 -d.)
 	do
 		WANv6=$(grep """${CLIENT}\.6wan""" ${WGDIR}/clients.conf | cut -f 2 -d=)
@@ -191,11 +196,6 @@ start() {
 		ip -6 address add dev ${IFACE} ${WANv6//::/::1}
 		[[ -n "${LANv6}" ]] && ip -6 route add dev ${IFACE} ${LANv6} via ${WANv6//::*/::2}
 	done
-
-	ip link set ${IFACE} up
-	echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
-	
-	wg setconf ${IFACE}  ${WGDIR}/${CONFIG}
 
 	wg show ${IFACE}
 
